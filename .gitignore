@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+.ruff_cache/
+
+# Node
+node_modules/
+.next/
+
+# Environment
+.env
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+
+# uv
+uv.lock
+
+# Plan docs (not part of deliverable)
+PLAN.md
+IMPLEMENTATION.md
+QUICKSTART.md
