@@ -1,4 +1,10 @@
+import os
+from pathlib import Path
+
 from pydantic_settings import BaseSettings
+
+# Find .env relative to this file: backend/app/config.py -> ../../.env
+_env_file = Path(__file__).resolve().parent.parent.parent / ".env"
 
 
 class Settings(BaseSettings):
@@ -7,7 +13,13 @@ class Settings(BaseSettings):
     model_name: str = "gpt-4o-mini"
     model_temperature: float = 0.7
 
-    model_config = {"env_file": "../.env", "env_file_encoding": "utf-8"}
+    model_config = {"env_file": str(_env_file), "env_file_encoding": "utf-8"}
 
 
 settings = Settings()
+
+# Tavily's wrapper reads directly from os.environ
+if settings.tavily_api_key:
+    os.environ["TAVILY_API_KEY"] = settings.tavily_api_key
+if settings.openai_api_key:
+    os.environ["OPENAI_API_KEY"] = settings.openai_api_key

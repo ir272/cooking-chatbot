@@ -26,7 +26,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["http://localhost:3000", "http://localhost:3001"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -65,6 +65,10 @@ async def chat_stream(request: ChatRequest):
                 config=config,
                 stream_mode="messages",
             ):
+                # Only stream content from agent and reject nodes, not classify
+                node = metadata.get("langgraph_node", "")
+                if node == "classify":
+                    continue
                 if hasattr(chunk, "content") and chunk.content and isinstance(chunk, AIMessage):
                     yield json.dumps({"token": chunk.content, "thread_id": request.thread_id})
         except Exception as e:

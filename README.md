@@ -237,6 +237,15 @@ Zero additional dependencies for consuming SSE on the frontend. The data flow fr
 | Ambiguous classification | Defaults to "cooking" — better to attempt an answer than reject incorrectly |
 | Network timeout | FastAPI returns structured error; frontend displays error message |
 
+## Edge Cases & Future Work
+
+- **Multi-step recipes requiring unavailable cookware** — Currently the agent suggests substitutions in a single pass. Future: multi-turn negotiation where the agent proposes alternatives and lets the user choose.
+- **Ambiguous ingredient names** — "Tomato sauce" vs "strained tomatoes" can yield different recipes. Future: add a clarification node that asks the user to disambiguate before searching.
+- **Non-English queries or metric/imperial conversions** — GPT-4o-mini handles basic multilingual queries but doesn't explicitly convert units. Future: add a unit conversion tool and detect query language for localized responses.
+- **Long conversations and context window limits** — Currently using `InMemorySaver` which stores full message history. For production: implement memory pruning (keep last N messages + summary), or use a vector store for semantic retrieval of relevant past context.
+- **Tool failures (SERP outages, rate limits) and retries/circuit breakers** — Tavily failure falls back to DuckDuckGo. Future: add `tenacity` retry decorators with exponential backoff, and a circuit breaker pattern to skip failing tools after repeated failures.
+- **Prompt/template versioning** — System prompts are currently hardcoded strings. Future: move to a prompt registry with version tracking, A/B testing support, and evaluation metrics per version.
+
 ## Testing
 
 ```bash

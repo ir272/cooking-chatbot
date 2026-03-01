@@ -14,6 +14,7 @@ def get_search_tools() -> list:
         tools.append(
             TavilySearchResults(
                 max_results=3,
+                tavily_api_key=settings.tavily_api_key,
                 description=(
                     "Search the web for cooking recipes and food information. "
                     "Use this for finding specific recipes, cooking techniques, "
