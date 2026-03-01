@@ -19,9 +19,6 @@ node_modules/
 # OS
 .DS_Store
 
-# uv
-uv.lock
-
 # Plan docs (not part of deliverable)
 PLAN.md
 IMPLEMENTATION.md

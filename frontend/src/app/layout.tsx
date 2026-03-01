@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Cooking Assistant",
+  title: "Chef AI — Your Personal Cooking Assistant",
   description: "LLM-powered cooking & recipe Q&A chatbot",
 };
 
@@ -25,7 +25,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-cream-50`}
       >
         {children}
       </body>
