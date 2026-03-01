@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd /Users/ianroybal/cooking-chatbot*)",
+      "Bash(uv run*)",
+      "Bash(pnpm *)",
+      "Bash(curl *localhost*)",
+      "Bash(docker compose*)"
+    ]
+  }
+}

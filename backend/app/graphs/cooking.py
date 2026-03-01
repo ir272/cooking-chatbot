@@ -35,10 +35,12 @@ def build_graph():
     def classify_query(state: CookingState) -> dict:
         """Classify whether the query is cooking-related or off-topic."""
         last_message = state["messages"][-1]
-        response = llm.invoke([
-            SystemMessage(content=CLASSIFICATION_PROMPT),
-            HumanMessage(content=last_message.content),
-        ])
+        response = llm.invoke(
+            [
+                SystemMessage(content=CLASSIFICATION_PROMPT),
+                HumanMessage(content=last_message.content),
+            ]
+        )
         query_type = response.content.strip().lower()
         if query_type not in ("cooking", "off_topic"):
             query_type = "cooking"

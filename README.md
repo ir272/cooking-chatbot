@@ -246,6 +246,38 @@ Zero additional dependencies for consuming SSE on the frontend. The data flow fr
 - **Tool failures (SERP outages, rate limits) and retries/circuit breakers** — Tavily failure falls back to DuckDuckGo. Future: add `tenacity` retry decorators with exponential backoff, and a circuit breaker pattern to skip failing tools after repeated failures.
 - **Prompt/template versioning** — System prompts are currently hardcoded strings. Future: move to a prompt registry with version tracking, A/B testing support, and evaluation metrics per version.
 
+## OpenAPI Schema & TypeScript Types
+
+### Export the OpenAPI schema
+
+```bash
+cd backend
+uv run python scripts/export_openapi.py
+# Writes backend/openapi.json
+```
+
+The generated `openapi.json` is also served at runtime by FastAPI at `GET /openapi.json`.
+
+### Generate TypeScript types from the schema
+
+You can use any OpenAPI-to-TypeScript codegen tool. For example, with
+[`@hey-api/openapi-ts`](https://heyapi.dev/openapi-ts/):
+
+```bash
+cd frontend
+pnpm add -D @hey-api/openapi-ts
+npx @hey-api/openapi-ts -i ../backend/openapi.json -o src/api
+```
+
+This produces typed request/response interfaces and an optional fetch client
+under `frontend/src/api/`.
+
+Alternatively, lighter-weight options:
+
+- **openapi-typescript** — `npx openapi-typescript ../backend/openapi.json -o src/types/api.d.ts`
+- **Manual** — The schema is small enough that hand-written types (already in
+  `src/types/`) stay in sync easily.
+
 ## Testing
 
 ```bash
