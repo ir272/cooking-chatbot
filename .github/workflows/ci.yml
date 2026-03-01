@@ -69,6 +69,8 @@ jobs:
         run: uv run ruff format --check .
 
       - name: Run tests
+        env:
+          OPENAI_API_KEY: test-key-for-ci
         run: uv run pytest -v
 
   # ---------------------------------------------------------------------------
@@ -89,6 +91,7 @@ jobs:
         uses: pnpm/action-setup@v4
         with:
           run_install: false
+          package_json_file: frontend/package.json
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
