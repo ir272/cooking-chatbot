@@ -3,9 +3,8 @@
 import { useState, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ChefHat, User, Copy, Check, Clock, Users } from "lucide-react";
+import { ChefHat, Copy, Check, Clock, Users } from "lucide-react";
 import { Message } from "@/types/chat";
-import { Card } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface ChatMessageProps {
@@ -30,7 +29,7 @@ function CopyButton({ text }: { text: string }) {
       <TooltipTrigger asChild>
         <button
           onClick={handleCopy}
-          className="p-1.5 rounded-md hover:bg-cream-200 text-bark-600 transition-colors"
+          className="p-1 rounded-md hover:bg-cream-200/80 text-bark-600/40 hover:text-bark-600 transition-colors cursor-pointer"
           aria-label={copied ? "Copied!" : "Copy message"}
         >
           {copied ? (
@@ -41,7 +40,7 @@ function CopyButton({ text }: { text: string }) {
         </button>
       </TooltipTrigger>
       <TooltipContent>
-        <p>{copied ? "Copied!" : "Copy message"}</p>
+        <p>{copied ? "Copied!" : "Copy"}</p>
       </TooltipContent>
     </Tooltip>
   );
@@ -66,7 +65,7 @@ function RecipeMeta({ content }: { content: string }) {
   if (!prepTime && !servings) return null;
 
   return (
-    <div className="flex gap-4 text-xs text-bark-600 mb-3 pb-3 border-b border-cream-200">
+    <div className="flex gap-4 text-xs text-bark-600/70 mb-3 pb-3 border-b border-bark-800/5">
       {prepTime && (
         <div className="flex items-center gap-1.5">
           <Clock className="w-3.5 h-3.5" />
@@ -85,6 +84,12 @@ function RecipeMeta({ content }: { content: string }) {
 
 export function ChatMessage({ message }: ChatMessageProps) {
   const isUser = message.role === "user";
+
+  // Don't render empty assistant messages — the typing indicator handles this state
+  if (!isUser && !message.content) {
+    return null;
+  }
+
   const isRecipe = !isUser && (
     message.content.toLowerCase().includes("ingredients") ||
     message.content.toLowerCase().includes("instructions") ||
@@ -94,11 +99,8 @@ export function ChatMessage({ message }: ChatMessageProps) {
   if (isUser) {
     return (
       <div className="flex justify-end animate-fade-in-up">
-        <div className="flex items-start gap-2.5 max-w-[80%] flex-row-reverse">
-          <div className="w-8 h-8 rounded-full bg-bark-800 flex items-center justify-center shrink-0">
-            <User className="w-4 h-4 text-cream-50" />
-          </div>
-          <div className="rounded-2xl rounded-tr-sm px-4 py-3 bg-bark-800 text-cream-50">
+        <div className="max-w-[80%]">
+          <div className="rounded-2xl rounded-tr-md px-4 py-2.5 bg-orange-600 text-cream-50">
             <p className="text-sm whitespace-pre-wrap leading-relaxed">
               {message.content}
             </p>
@@ -111,11 +113,11 @@ export function ChatMessage({ message }: ChatMessageProps) {
   return (
     <div className="flex justify-start animate-fade-in-up group">
       <div className="flex items-start gap-2.5 max-w-[85%]">
-        <div className="w-8 h-8 rounded-full bg-orange-600 flex items-center justify-center shrink-0 mt-1">
-          <ChefHat className="w-4 h-4 text-cream-50" />
+        <div className="w-7 h-7 rounded-full bg-bark-800 flex items-center justify-center shrink-0 mt-0.5">
+          <ChefHat className="w-3.5 h-3.5 text-cream-50" />
         </div>
-        <Card className="bg-cream-100 border-cream-200 shadow-sm rounded-2xl rounded-tl-sm p-0 overflow-hidden">
-          <div className="p-4">
+        <div className="min-w-0">
+          <div className="rounded-2xl rounded-tl-md px-4 py-3 bg-white border border-cream-200/80 shadow-sm">
             {isRecipe && <RecipeMeta content={message.content} />}
             <div className="markdown-content">
               <ReactMarkdown
@@ -132,25 +134,25 @@ export function ChatMessage({ message }: ChatMessageProps) {
                     </a>
                   ),
                   h1: ({ children }) => (
-                    <h1 className="text-xl font-bold text-bark-800 mt-4 mb-2 first:mt-0">
+                    <h1 className="text-base font-semibold text-bark-800 mt-3 mb-1.5 first:mt-0">
                       {children}
                     </h1>
                   ),
                   h2: ({ children }) => (
-                    <h2 className="text-lg font-bold text-bark-800 mt-4 mb-2 first:mt-0">
+                    <h2 className="text-sm font-semibold text-bark-800 mt-3 mb-1 first:mt-0">
                       {children}
                     </h2>
                   ),
                   h3: ({ children }) => (
-                    <h3 className="text-base font-semibold text-bark-800 mt-3 mb-1">
+                    <h3 className="text-sm font-medium text-bark-800 mt-2 mb-1">
                       {children}
                     </h3>
                   ),
                   ul: ({ children }) => (
-                    <ul className="my-2 space-y-1">{children}</ul>
+                    <ul className="my-1.5 space-y-0.5">{children}</ul>
                   ),
                   ol: ({ children }) => (
-                    <ol className="my-2 space-y-2">{children}</ol>
+                    <ol className="my-1.5 space-y-1">{children}</ol>
                   ),
                   li: ({ children }) => (
                     <li className="text-sm text-bark-800 leading-relaxed">
@@ -169,11 +171,11 @@ export function ChatMessage({ message }: ChatMessageProps) {
             </div>
           </div>
           {message.content && (
-            <div className="flex justify-end px-4 pb-3 pt-0">
+            <div className="flex mt-1 ml-1 opacity-0 group-hover:opacity-100 transition-opacity">
               <CopyButton text={message.content} />
             </div>
           )}
-        </Card>
+        </div>
       </div>
     </div>
   );

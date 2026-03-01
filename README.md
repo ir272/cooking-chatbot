@@ -172,12 +172,9 @@ Health check endpoint. Returns `{"status": "ok"}`.
 ### `POST /chat`
 Non-streaming chat endpoint.
 
-```json
-// Request
-{"message": "How do I make scrambled eggs?", "thread_id": "optional-uuid"}
-
-// Response
-{"message": "Here's how to make scrambled eggs...", "thread_id": "uuid"}
+```
+Request:  {"message": "How do I make scrambled eggs?", "thread_id": "optional-uuid"}
+Response: {"message": "Here's how to make scrambled eggs...", "thread_id": "uuid"}
 ```
 
 ### `POST /chat/stream`
@@ -256,9 +253,8 @@ Tests cover tool behavior (cookware lookup, case sensitivity, edge cases), API e
 
 ## OpenAPI Schema
 
-```bash
-cd backend
-uv run python scripts/export_openapi.py   # Exports backend/openapi.json
-```
+Interactive docs at `GET /docs` when backend is running. Export static schema:
 
-Also served at runtime at `GET /openapi.json` and interactive docs at `GET /docs`.
+```bash
+cd backend && uv run python scripts/export_openapi.py   # → backend/openapi.json
+```

@@ -5,9 +5,8 @@ import { useChat } from "@/hooks/use-chat";
 import { ChatMessage } from "./chat-message";
 import { ChatInput } from "./chat-input";
 import { SuggestedPrompts } from "./suggested-prompts";
-import { ChefHat, ArrowDown } from "lucide-react";
+import { ChefHat, ArrowDown, AlertTriangle } from "lucide-react";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { AlertTriangle } from "lucide-react";
 
 export function ChatContainer() {
   const { messages, isLoading, error, sendMessage } = useChat();
@@ -39,19 +38,14 @@ export function ChatContainer() {
 
   return (
     <TooltipProvider delayDuration={200}>
-      <div className="flex flex-col h-dvh max-w-3xl mx-auto">
+      <div className="flex flex-col h-dvh bg-cream-50">
         {/* Header */}
-        <div className="sticky top-0 z-10 backdrop-blur-md bg-cream-50/90 border-b border-cream-200">
-          <div className="flex items-center gap-3 p-4">
-            <div className="w-9 h-9 rounded-full bg-orange-600 flex items-center justify-center">
-              <ChefHat className="w-5 h-5 text-cream-50" />
+        <div className="sticky top-0 z-10 backdrop-blur-md bg-cream-50/90 border-b border-cream-200/60">
+          <div className="flex items-center gap-2.5 px-4 py-3 max-w-3xl mx-auto">
+            <div className="w-8 h-8 rounded-xl bg-bark-800 flex items-center justify-center">
+              <ChefHat className="w-4 h-4 text-cream-50" />
             </div>
-            <div>
-              <h1 className="text-base font-semibold text-bark-800">Chef AI</h1>
-              <p className="text-xs text-bark-600">
-                Your personal cooking assistant
-              </p>
-            </div>
+            <h1 className="text-sm font-semibold text-bark-800">Chef AI</h1>
           </div>
         </div>
 
@@ -59,59 +53,62 @@ export function ChatContainer() {
         <div
           ref={scrollRef}
           onScroll={handleScroll}
-          className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar relative"
+          className="flex-1 overflow-y-auto custom-scrollbar"
         >
-          {messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full">
-              <SuggestedPrompts onSelect={sendMessage} />
-            </div>
-          ) : (
-            messages.map((msg) => <ChatMessage key={msg.id} message={msg} />)
-          )}
+          <div className="max-w-3xl mx-auto px-4 py-4 space-y-5">
+            {messages.length === 0 ? (
+              <div className="flex flex-col items-center justify-center min-h-[calc(100dvh-8rem)]">
+                <SuggestedPrompts onSelect={sendMessage} />
+              </div>
+            ) : (
+              messages.map((msg) => <ChatMessage key={msg.id} message={msg} />)
+            )}
 
-          {showTypingIndicator && (
-            <div className="flex justify-start animate-fade-in-up">
-              <div className="flex items-start gap-2.5">
-                <div className="w-8 h-8 rounded-full bg-orange-600 flex items-center justify-center shrink-0">
-                  <ChefHat className="w-4 h-4 text-cream-50" />
-                </div>
-                <div className="rounded-2xl rounded-tl-sm px-4 py-3 bg-cream-100 border border-cream-200">
-                  <div className="flex gap-1.5 items-center h-5">
-                    <span className="w-2 h-2 bg-orange-500 rounded-full animate-pulse-dot" />
-                    <span className="w-2 h-2 bg-orange-500 rounded-full animate-pulse-dot [animation-delay:0.2s]" />
-                    <span className="w-2 h-2 bg-orange-500 rounded-full animate-pulse-dot [animation-delay:0.4s]" />
+            {showTypingIndicator && (
+              <div className="flex justify-start animate-fade-in-up">
+                <div className="flex items-start gap-2.5">
+                  <div className="w-7 h-7 rounded-full bg-bark-800 flex items-center justify-center shrink-0">
+                    <ChefHat className="w-3.5 h-3.5 text-cream-50" />
+                  </div>
+                  <div className="rounded-2xl rounded-tl-md px-4 py-3 bg-white border border-cream-200/80 shadow-sm">
+                    <div className="flex gap-1.5 items-center h-4">
+                      <span className="w-1.5 h-1.5 bg-bark-600/40 rounded-full animate-pulse-dot" />
+                      <span className="w-1.5 h-1.5 bg-bark-600/40 rounded-full animate-pulse-dot [animation-delay:0.2s]" />
+                      <span className="w-1.5 h-1.5 bg-bark-600/40 rounded-full animate-pulse-dot [animation-delay:0.4s]" />
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {error && (
-            <div className="flex items-start gap-3 p-4 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive animate-fade-in-up">
-              <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
-              <div>
-                <p className="font-medium text-sm">Something went wrong</p>
-                <p className="text-sm opacity-90 mt-1">{error}</p>
+            {error && (
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-red-50 border border-red-200/50 text-red-700 animate-fade-in-up">
+                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                <p className="text-sm">{error}</p>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* Scroll to bottom FAB */}
         {!isAtBottom && messages.length > 0 && (
-          <div className="relative">
+          <div className="relative max-w-3xl mx-auto w-full">
             <button
               onClick={scrollToBottom}
-              className="absolute -top-12 right-4 w-9 h-9 rounded-full bg-cream-100 border border-cream-200 shadow-md flex items-center justify-center hover:bg-cream-200 transition-colors cursor-pointer"
+              className="absolute -top-12 left-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-white border border-cream-200 shadow-md flex items-center justify-center hover:bg-cream-100 transition-colors cursor-pointer"
               aria-label="Scroll to bottom"
             >
-              <ArrowDown className="w-4 h-4 text-bark-600" />
+              <ArrowDown className="w-3.5 h-3.5 text-bark-600" />
             </button>
           </div>
         )}
 
         {/* Input */}
-        <ChatInput onSend={sendMessage} disabled={isLoading} />
+        <div className="border-t border-cream-200/60">
+          <div className="max-w-3xl mx-auto">
+            <ChatInput onSend={sendMessage} disabled={isLoading} />
+          </div>
+        </div>
       </div>
     </TooltipProvider>
   );
