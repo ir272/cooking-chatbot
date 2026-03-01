@@ -3,6 +3,7 @@
 import { useState, KeyboardEvent } from "react";
 import TextareaAutosize from "react-textarea-autosize";
 import { Send } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface ChatInputProps {
   onSend: (message: string) => void;
@@ -30,7 +31,7 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
 
   return (
     <div className="border-t border-cream-200 bg-cream-50 safe-bottom">
-      <div className="flex items-end gap-3 p-4">
+      <div className="flex items-end gap-3 p-4 max-w-3xl mx-auto">
         <div className="flex-1 relative">
           <TextareaAutosize
             value={input}
@@ -50,13 +51,15 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
             </span>
           )}
         </div>
-        <button
+        <Button
           onClick={handleSend}
           disabled={disabled || !input.trim()}
-          className="w-11 h-11 rounded-xl bg-orange-600 hover:bg-orange-700 disabled:bg-cream-200 flex items-center justify-center transition-colors shrink-0 cursor-pointer disabled:cursor-not-allowed"
+          size="icon"
+          aria-label="Send message"
+          className="w-11 h-11 shrink-0"
         >
-          <Send className="w-4.5 h-4.5 text-cream-50 disabled:text-bark-600/30" />
-        </button>
+          <Send className="w-4.5 h-4.5" />
+        </Button>
       </div>
     </div>
   );

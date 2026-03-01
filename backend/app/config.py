@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 
 from pydantic_settings import BaseSettings
@@ -17,9 +16,3 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
-
-# Tavily's wrapper reads directly from os.environ
-if settings.tavily_api_key:
-    os.environ["TAVILY_API_KEY"] = settings.tavily_api_key
-if settings.openai_api_key:
-    os.environ["OPENAI_API_KEY"] = settings.openai_api_key

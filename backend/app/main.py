@@ -1,4 +1,5 @@
 import json
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
@@ -8,6 +9,8 @@ from sse_starlette.sse import EventSourceResponse
 
 from app.graphs.cooking import build_graph
 from app.schemas.chat import ChatRequest, ChatResponse
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -49,8 +52,9 @@ async def chat(request: ChatRequest):
         )
         last_message = result["messages"][-1]
         return ChatResponse(message=last_message.content, thread_id=request.thread_id)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        logger.exception("Graph invocation failed for thread_id=%s", request.thread_id)
+        raise HTTPException(status_code=500, detail="An internal error occurred. Please try again.")
 
 
 @app.post("/chat/stream")
@@ -71,8 +75,9 @@ async def chat_stream(request: ChatRequest):
                     continue
                 if hasattr(chunk, "content") and chunk.content and isinstance(chunk, AIMessage):
                     yield json.dumps({"token": chunk.content, "thread_id": request.thread_id})
-        except Exception as e:
-            yield json.dumps({"error": str(e)})
+        except Exception:
+            logger.exception("Streaming error for thread_id=%s", request.thread_id)
+            yield json.dumps({"error": "Streaming error occurred. Please try again."})
         finally:
             yield "[DONE]"
 

@@ -9,12 +9,15 @@ export function useChat() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const threadIdRef = useRef(crypto.randomUUID());
+  const isLoadingRef = useRef(false);
 
   const sendMessage = useCallback(
     async (content: string) => {
-      if (!content.trim() || isLoading) return;
+      if (!content.trim() || isLoadingRef.current) return;
 
+      isLoadingRef.current = true;
       setError(null);
+      setIsLoading(true);
 
       const userMessage: Message = {
         id: crypto.randomUUID(),
@@ -30,8 +33,6 @@ export function useChat() {
         { id: assistantId, role: "assistant", content: "" },
       ]);
 
-      setIsLoading(true);
-
       await streamChat(
         content.trim(),
         threadIdRef.current,
@@ -44,14 +45,18 @@ export function useChat() {
             )
           );
         },
-        () => setIsLoading(false),
+        () => {
+          isLoadingRef.current = false;
+          setIsLoading(false);
+        },
         (err) => {
           setError(err);
+          isLoadingRef.current = false;
           setIsLoading(false);
         }
       );
     },
-    [isLoading]
+    []
   );
 
   return { messages, isLoading, error, sendMessage };

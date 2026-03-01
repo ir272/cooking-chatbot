@@ -5,13 +5,14 @@ from app.config import settings
 
 
 def get_search_tools() -> list:
-    """Build list of available search tools based on configured API keys."""
-    tools = []
+    """Build list of available search tools based on configured API keys.
 
+    Uses Tavily if API key is set, otherwise falls back to DuckDuckGo.
+    """
     if settings.tavily_api_key:
         from langchain_community.tools import TavilySearchResults
 
-        tools.append(
+        return [
             TavilySearchResults(
                 max_results=3,
                 tavily_api_key=settings.tavily_api_key,
@@ -21,17 +22,16 @@ def get_search_tools() -> list:
                     "or ingredient information."
                 ),
             )
-        )
+        ]
 
     wrapper = DuckDuckGoSearchAPIWrapper(max_results=3)
-    tools.append(
+    return [
         DuckDuckGoSearchResults(
             api_wrapper=wrapper,
             description=(
-                "Search the web using DuckDuckGo for cooking recipes and food information. "
-                "Use as a fallback or additional search source."
+                "Search the web for cooking recipes and food information. "
+                "Use this for finding specific recipes, cooking techniques, "
+                "or ingredient information."
             ),
         )
-    )
-
-    return tools
+    ]

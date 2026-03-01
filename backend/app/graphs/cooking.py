@@ -13,7 +13,7 @@ from app.prompts.system import CLASSIFICATION_PROMPT, COOKING_SYSTEM_PROMPT, REJ
 from app.tools import check_cookware, get_search_tools
 
 
-class CookingState(TypedDict):
+class CookingState(TypedDict, total=False):
     messages: Annotated[list[AnyMessage], add_messages]
     query_type: str
 
@@ -32,13 +32,16 @@ def build_graph():
 
     # --- Node functions ---
 
-    def classify_query(state: CookingState) -> dict:
+    async def classify_query(state: CookingState) -> dict:
         """Classify whether the query is cooking-related or off-topic."""
         last_message = state["messages"][-1]
-        response = llm.invoke(
+        content = last_message.content
+        if isinstance(content, list):
+            content = " ".join(p.get("text", "") for p in content if isinstance(p, dict))
+        response = await llm.ainvoke(
             [
                 SystemMessage(content=CLASSIFICATION_PROMPT),
-                HumanMessage(content=last_message.content),
+                HumanMessage(content=content),
             ]
         )
         query_type = response.content.strip().lower()
@@ -50,16 +53,16 @@ def build_graph():
         """Reject off-topic queries with a helpful message."""
         return {"messages": [AIMessage(content=REJECTION_MESSAGE)]}
 
-    def agent(state: CookingState) -> dict:
+    async def agent(state: CookingState) -> dict:
         """Main agent node — calls LLM with tools."""
         system = SystemMessage(content=COOKING_SYSTEM_PROMPT)
         messages = [system] + state["messages"]
-        response = llm_with_tools.invoke(messages)
+        response = await llm_with_tools.ainvoke(messages)
         return {"messages": [response]}
 
     def route_by_type(state: CookingState) -> Literal["agent", "reject"]:
         """Route based on query classification."""
-        if state["query_type"] == "off_topic":
+        if state.get("query_type") == "off_topic":
             return "reject"
         return "agent"
 
