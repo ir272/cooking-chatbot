@@ -2,6 +2,43 @@
 
 An LLM-powered cooking and recipe Q&A application built with LangGraph, FastAPI, and Next.js.
 
+## Quick Start
+
+```bash
+# 1. Clone and set up environment
+git clone https://github.com/ir272/cooking-chatbot.git
+cd cooking-chatbot
+cp .env.example .env
+# Edit .env → add your OPENAI_API_KEY (required)
+
+# 2. Start backend
+cd backend
+uv sync
+uv run uvicorn app.main:app --reload --port 8001
+
+# 3. Start frontend (in a new terminal)
+cd frontend
+pnpm install
+pnpm dev --port 3001
+
+# 4. Open http://localhost:3001
+```
+
+**Prerequisites:** Python 3.12+, Node.js 22+, [uv](https://docs.astral.sh/uv/) (`curl -LsSf https://astral.sh/uv/install.sh | sh`), pnpm (`corepack enable`)
+
+**Docker alternative:**
+```bash
+docker compose up --build
+# Backend: http://localhost:8001 | Frontend: http://localhost:3001
+```
+
+### Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `OPENAI_API_KEY` | Yes | OpenAI API key for GPT-4o-mini |
+| `TAVILY_API_KEY` | No | Tavily search API key (DuckDuckGo is used as fallback) |
+
 ## Architecture
 
 ```
@@ -25,20 +62,50 @@ User → Next.js (React) → POST /api/chat → FastAPI → LangGraph Agent
                                             to frontend
 ```
 
+### Monorepo Structure
+
+```
+cooking-chatbot/
+├── backend/                  # Python — FastAPI + LangGraph
+│   ├── app/
+│   │   ├── config.py         # Pydantic Settings (env loading)
+│   │   ├── main.py           # FastAPI app + SSE/REST endpoints
+│   │   ├── graphs/cooking.py # LangGraph StateGraph (classify → agent/reject)
+│   │   ├── prompts/system.py # System prompts
+│   │   ├── schemas/chat.py   # Pydantic request/response models
+│   │   └── tools/            # cookware.py (lookup), search.py (web search)
+│   ├── tests/                # pytest test suite
+│   ├── Dockerfile
+│   └── pyproject.toml
+├── frontend/                 # TypeScript — Next.js 16 + Tailwind CSS 4
+│   ├── src/
+│   │   ├── app/              # Pages, API proxy route, global styles
+│   │   ├── components/chat/  # ChatContainer, ChatMessage, ChatInput, SuggestedPrompts
+│   │   ├── hooks/use-chat.ts # SSE streaming hook
+│   │   ├── lib/api.ts        # Raw fetch + ReadableStream client
+│   │   └── types/chat.ts     # Message interface
+│   ├── Dockerfile
+│   └── package.json
+├── docker-compose.yml        # Full-stack orchestration
+├── .github/workflows/ci.yml  # CI pipeline (lint, test, build, docker)
+├── CLAUDE.md                 # AI agent project context
+└── AGENTS.md                 # AI agent contribution guidelines
+```
+
 ### Graph Flow
 
-1. **classify_query** — A lightweight LLM call determines if the user's question is cooking-related or off-topic
-2. **reject_query** — Off-topic queries receive a polite redirect message
+1. **classify_query** — A lightweight LLM call determines if the user's question is cooking-related or off-topic (~200ms)
+2. **reject_query** — Off-topic queries receive a polite redirect message (no agent loop cost)
 3. **agent** — The main LLM node with bound tools processes cooking queries
-4. **tools** — LangGraph's `ToolNode` executes tool calls (search, cookware check)
+4. **tools** — LangGraph's `ToolNode` executes tool calls (web search, cookware check)
 5. The agent loops with tools until it has a final answer, then streams it back via SSE
 
-## Tech Stack
+### Tech Stack
 
 | Layer | Technology | Version |
 |-------|-----------|---------|
-| LLM Orchestration | LangGraph | 1.0.10 |
-| LLM | GPT-4o-mini (via LangChain) | — |
+| LLM Orchestration | LangGraph (custom StateGraph) | 0.3+ |
+| LLM | GPT-4o-mini via LangChain | — |
 | Backend | FastAPI + Uvicorn | 0.115+ |
 | Streaming | SSE via sse-starlette | 2.2+ |
 | Frontend | Next.js (App Router) | 16.x |
@@ -47,245 +114,151 @@ User → Next.js (React) → POST /api/chat → FastAPI → LangGraph Agent
 | Package Mgmt | uv (Python) / pnpm (Node) | — |
 | Containerization | Docker + Docker Compose | — |
 
-## Getting Started
+## Design Decisions & Trade-offs
 
-### Prerequisites
+### Custom StateGraph over `create_react_agent`
 
-- Python 3.12+
-- Node.js 22+
-- [uv](https://docs.astral.sh/uv/) (`curl -LsSf https://astral.sh/uv/install.sh | sh`)
-- pnpm (`corepack enable`)
-- Docker Desktop (for containerized deployment)
+The classification gate (cooking vs. off-topic) requires routing *before* the agent loop. A custom `StateGraph` makes this control flow explicit and auditable. `create_react_agent` has no concept of pre-loop classification, so we'd need to embed topic filtering into the system prompt — making it invisible, untestable, and harder to debug.
 
-### API Keys
+**Trade-off:** More boilerplate to set up the graph, but full control over the execution path.
 
-Create a `.env` file in the project root:
+### GPT-4o-mini as the LLM
 
-```bash
-cp .env.example .env
-# Edit .env with your keys:
-# OPENAI_API_KEY=sk-...
-# TAVILY_API_KEY=tvly-...  (optional — DuckDuckGo works without it)
-```
+At $0.15/$0.60 per 1M input/output tokens, it's 30x cheaper than GPT-4o with excellent tool-calling reliability. A cooking Q&A bot doesn't need frontier reasoning — the tools (search, cookware check) do the heavy lifting. The model is easily swappable via the `MODEL_NAME` config.
 
-### Local Development
+**Trade-off:** Less creative/nuanced responses than GPT-4o, but the cost savings are enormous for a Q&A use case.
 
-**Backend:**
-```bash
-cd backend
-uv sync
-uv run uvicorn app.main:app --reload --port 8000
-```
+### Separate Classification Node
 
-**Frontend:**
-```bash
-cd frontend
-pnpm install
-pnpm dev
-```
+A dedicated async LLM call for classification enables fail-fast rejection of off-topic queries (~200ms) instead of running the full agent loop (1-5s with tool calls). It uses structured output for deterministic routing and is independently testable.
 
-Open http://localhost:3000
+**Trade-off:** Adds one extra LLM call per request. At $0.15/1M tokens for a ~20-token classification, this costs <$0.01 per 1000 requests — negligible vs. the savings from not running the full agent on off-topic queries.
 
-### Docker
+### SSE over WebSockets
 
-```bash
-docker compose up --build
-```
+Chat streaming is unidirectional (server→client). SSE works over standard HTTP, plays nicely with load balancers/proxies, auto-reconnects, and requires ~10 lines of frontend code vs. WebSocket lifecycle management. Next.js API routes proxy the SSE stream transparently.
 
-Backend: http://localhost:8000 | Frontend: http://localhost:3000
+**Trade-off:** No bidirectional communication, but chat doesn't need it — user messages are standard POST requests.
+
+### Tavily + DuckDuckGo Fallback Search
+
+Tavily is purpose-built for LLM applications with pre-extracted, citation-ready content. DuckDuckGo serves as a zero-config fallback requiring no API key, ensuring the bot always has search capability even without a Tavily key.
+
+**Trade-off:** DuckDuckGo results are less structured than Tavily's, but functional. Only one is active at a time (not both) to avoid duplicate results and latency.
+
+### Next.js API Route Proxy
+
+The frontend calls its own `/api/chat` route, which proxies to FastAPI. This keeps the backend URL server-side only, eliminates CORS for the browser, and enables future middleware (rate limiting, auth, logging) without modifying the backend.
+
+**Trade-off:** Adds a hop, but it's in-process so latency is negligible.
+
+### Raw fetch + ReadableStream (no Vercel AI SDK)
+
+Zero additional dependencies for consuming SSE on the frontend. The data flow from backend to UI is fully transparent — no SDK magic to debug. The `streamChat` function is ~60 lines of explicit, readable code.
+
+**Trade-off:** More code than `useChat()` from Vercel AI SDK, but no vendor lock-in and full control over parsing behavior.
+
+### uv for Python Packaging
+
+10-100x faster than pip, deterministic lockfile (`uv.lock`), Docker cache-friendly. Rapidly becoming the standard Python tooling choice.
+
+**Trade-off:** Newer tool, less community content than pip/poetry, but the developer experience improvement is substantial.
 
 ## API Reference
 
 ### `GET /health`
-Health check endpoint.
-
-**Response:** `{"status": "ok"}`
+Health check endpoint. Returns `{"status": "ok"}`.
 
 ### `POST /chat`
 Non-streaming chat endpoint.
 
-**Request:**
 ```json
-{
-  "message": "How do I make scrambled eggs?",
-  "thread_id": "optional-uuid"
-}
-```
+// Request
+{"message": "How do I make scrambled eggs?", "thread_id": "optional-uuid"}
 
-**Response:**
-```json
-{
-  "message": "Here's how to make scrambled eggs...",
-  "thread_id": "uuid"
-}
+// Response
+{"message": "Here's how to make scrambled eggs...", "thread_id": "uuid"}
 ```
 
 ### `POST /chat/stream`
-SSE streaming chat endpoint.
+SSE streaming chat endpoint. Same request format as `/chat`.
 
-**Request:** Same as `/chat`
-
-**Response:** Server-Sent Events stream:
 ```
 data: {"token": "Here's", "thread_id": "uuid"}
 data: {"token": " how", "thread_id": "uuid"}
-data: {"token": " to", "thread_id": "uuid"}
 ...
 data: [DONE]
 ```
 
-## Architecture Decisions
+## Deployment Plan (AWS)
 
-### Custom StateGraph over `create_react_agent`
-The classification gate (cooking vs. off-topic) requires routing *before* the agent loop. A custom `StateGraph` makes this control flow explicit and auditable, while `create_react_agent` has no concept of pre-loop classification.
+| Component | AWS Service | Purpose |
+|-----------|-------------|---------|
+| Containers | ECS Fargate | Serverless container orchestration for backend + frontend |
+| Routing | Application Load Balancer | Path-based routing: `/api/*` → backend, `/*` → frontend |
+| Registry | ECR | Docker image storage |
+| CDN | CloudFront | Edge caching for static frontend assets |
+| Secrets | Secrets Manager | API keys (OPENAI_API_KEY, TAVILY_API_KEY) injected via ECS task definition `valueFrom` |
+| Config | SSM Parameter Store | Non-sensitive config (model name, temperature) |
+| Networking | VPC | Private subnets for ECS tasks, public subnets for ALB |
+| TLS | ACM | HTTPS certificate on ALB, HTTP→HTTPS redirect |
+| CI/CD | GitHub Actions | Build → test → push to ECR → deploy to ECS (blue/green rolling updates) |
 
-### GPT-4o-mini as the LLM
-At $0.15/$0.60 per 1M tokens, it's 30x cheaper than GPT-4o with excellent tool-calling reliability. A cooking Q&A bot doesn't need frontier-level reasoning — the tools (search, cookware check) do the heavy lifting.
+### Security
 
-### Separate Classification Node
-A dedicated LLM call for classification enables fail-fast rejection of off-topic queries (~200ms) instead of running the full agent loop. It's independently testable and uses structured output for deterministic routing.
+- **CORS** restricted to frontend origin only
+- **HTTPS** enforced via ALB with ACM certificate
+- **Input validation** via Pydantic v2 (max 2000 chars, whitespace rejection)
+- **Classification gate** rejects non-cooking queries before they reach the agent
+- **Sanitized errors** — raw exception details are logged server-side, never exposed to clients
+- **Non-root containers** — both Dockerfiles use unprivileged `USER` directives
+- **`.dockerignore`** prevents `.env` secrets from being baked into images
+- **Rate limiting** (planned) — `slowapi` middleware at 30 req/min per IP
 
-### SSE over WebSockets
-Chat streaming is unidirectional (server→client). SSE works over standard HTTP, plays nicely with load balancers/proxies, and requires ~10 lines of frontend code vs. WebSocket lifecycle management.
+### Auth (Planned)
 
-### Tavily + DuckDuckGo Dual Search
-Tavily is purpose-built for LLM applications with pre-extracted content. DuckDuckGo serves as a zero-config fallback requiring no API key, demonstrating resilience thinking.
-
-### LLM-Decided Cookware Check
-The cookware tool is available but not mandatory. The system prompt instructs "when providing a recipe, ALWAYS call check_cookware first." This preserves flexibility — not every cooking query needs a cookware check.
-
-### Next.js API Route Proxy
-The frontend calls its own `/api/chat` route, which proxies to FastAPI. This keeps the backend URL server-side, eliminates CORS for the browser, and enables future middleware (rate limiting, auth, logging).
-
-### Raw fetch + ReadableStream
-Zero additional dependencies for consuming SSE on the frontend. The data flow from backend to UI is fully transparent — no SDK magic to debug.
-
-### uv for Python Packaging
-10-100x faster than pip, deterministic lockfile, Docker cache-friendly. Rapidly becoming the standard Python tooling choice.
-
-## AWS Deployment Plan
-
-### Infrastructure
-- **ECS Fargate** — Serverless container orchestration for both backend and frontend services
-- **Application Load Balancer (ALB)** — Path-based routing: `/api/*` → backend, `/*` → frontend
-- **ECR** — Container registry for Docker images
-- **CloudFront** — CDN for static frontend assets with edge caching
-
-### Secrets & Configuration
-- **AWS Secrets Manager** — Store API keys (OPENAI_API_KEY, TAVILY_API_KEY)
-- **SSM Parameter Store** — Non-sensitive config (model name, temperature)
-- **ECS Task Definition** — Reference secrets via `valueFrom` ARN injection
-
-### Networking
-- **VPC** — Private subnets for ECS tasks, public subnets for ALB
-- **Security Groups** — ALB accepts 80/443, backend only accepts from ALB on 8000
-- **HTTPS** — ACM certificate on ALB, HTTP→HTTPS redirect
-
-### CI/CD
-- **GitHub Actions** — Build, test, push to ECR, deploy to ECS
-- **Blue/Green Deployment** — ECS rolling updates with health check gates
-
-## Auth & Security Plan
-
-### Authentication
-- **API Key Authentication** — Custom header (`X-API-Key`) validated by FastAPI middleware
-- **JWT Tokens** (future) — For user-specific sessions and conversation history
-- **Rate Limiting** — `slowapi` middleware: 30 requests/minute per IP
-
-### Input Validation
-- **Pydantic v2** — Strict schema validation on all request bodies
-- **Message Length** — Max 2,000 characters per message
-- **Content Filtering** — Classification gate rejects non-cooking queries
-
-### Infrastructure Security
-- **CORS** — Restricted to frontend origin only
-- **HTTPS** — Enforced via ALB with ACM certificate
-- **Secrets** — Never in code or environment variables; injected via Secrets Manager
-- **Container Scanning** — ECR image scanning for CVEs
-
-## ELT Integration Plan
-
-### Observability Stack
-- **OpenTelemetry** — Distributed tracing across FastAPI ↔ LangGraph ↔ LLM calls
-- **Structured Logging** — JSON logs via `structlog` for machine-parseable output
-- **CloudWatch Logs** — Centralized log aggregation with log group per service
-- **CloudWatch Metrics** — Custom metrics: request latency, token usage, tool call frequency
-
-### LLM-Specific Monitoring
-- **LangSmith** — LangChain's native tracing platform for debugging agent behavior
-- **Token Tracking** — Log input/output tokens per request for cost monitoring
-- **Tool Usage Analytics** — Track which tools are called, success/failure rates
-
-### Data Pipeline (Future)
-- **Kinesis Data Firehose** — Stream conversation logs to S3
-- **Glue Crawler** — Schema discovery on conversation data
-- **Athena** — Ad-hoc SQL queries on conversation history
-- **QuickSight** — Dashboards for usage patterns, popular queries, error rates
+- **Phase 1:** API key authentication via `X-API-Key` header + FastAPI middleware
+- **Phase 2:** JWT tokens for user-specific sessions and conversation history persistence
+- **Phase 3:** OAuth 2.0 integration for third-party login
 
 ## Edge Cases
 
 | Edge Case | How It's Handled |
 |-----------|-----------------|
-| Off-topic queries | Classification gate rejects with friendly redirect to cooking topics |
-| Missing cookware | Tool returns available alternatives; agent suggests recipe modifications |
-| Empty message | Pydantic validation rejects (min_length=1), returns 422 |
-| Very long message | Pydantic validation rejects (max_length=2000), returns 422 |
-| API rate limits (Tavily) | DuckDuckGo search serves as automatic fallback |
+| Off-topic queries | Classification gate rejects with friendly redirect |
+| Missing cookware | Tool returns available alternatives; agent suggests modifications |
+| Empty/whitespace message | Pydantic validation rejects (`min_length=1` + whitespace strip) |
+| Very long message | Pydantic validation rejects (`max_length=2000`) |
+| Tavily rate limits | DuckDuckGo search serves as automatic fallback |
 | LLM hallucination | Search tools ground responses in real web results |
 | Streaming disconnect | Frontend handles incomplete streams; error state displayed |
-| Concurrent conversations | InMemorySaver with thread_id isolation (upgrade to PostgresSaver for production) |
+| Concurrent conversations | Thread-isolated via `thread_id` with `MemorySaver` (swap to PostgresSaver for production) |
 | Ambiguous classification | Defaults to "cooking" — better to attempt an answer than reject incorrectly |
-| Network timeout | FastAPI returns structured error; frontend displays error message |
-
-## Edge Cases & Future Work
-
-- **Multi-step recipes requiring unavailable cookware** — Currently the agent suggests substitutions in a single pass. Future: multi-turn negotiation where the agent proposes alternatives and lets the user choose.
-- **Ambiguous ingredient names** — "Tomato sauce" vs "strained tomatoes" can yield different recipes. Future: add a clarification node that asks the user to disambiguate before searching.
-- **Non-English queries or metric/imperial conversions** — GPT-4o-mini handles basic multilingual queries but doesn't explicitly convert units. Future: add a unit conversion tool and detect query language for localized responses.
-- **Long conversations and context window limits** — Currently using `InMemorySaver` which stores full message history. For production: implement memory pruning (keep last N messages + summary), or use a vector store for semantic retrieval of relevant past context.
-- **Tool failures (SERP outages, rate limits) and retries/circuit breakers** — Tavily failure falls back to DuckDuckGo. Future: add `tenacity` retry decorators with exponential backoff, and a circuit breaker pattern to skip failing tools after repeated failures.
-- **Prompt/template versioning** — System prompts are currently hardcoded strings. Future: move to a prompt registry with version tracking, A/B testing support, and evaluation metrics per version.
-
-## OpenAPI Schema & TypeScript Types
-
-### Export the OpenAPI schema
-
-```bash
-cd backend
-uv run python scripts/export_openapi.py
-# Writes backend/openapi.json
-```
-
-The generated `openapi.json` is also served at runtime by FastAPI at `GET /openapi.json`.
-
-### Generate TypeScript types from the schema
-
-You can use any OpenAPI-to-TypeScript codegen tool. For example, with
-[`@hey-api/openapi-ts`](https://heyapi.dev/openapi-ts/):
-
-```bash
-cd frontend
-pnpm add -D @hey-api/openapi-ts
-npx @hey-api/openapi-ts -i ../backend/openapi.json -o src/api
-```
-
-This produces typed request/response interfaces and an optional fetch client
-under `frontend/src/api/`.
-
-Alternatively, lighter-weight options:
-
-- **openapi-typescript** — `npx openapi-typescript ../backend/openapi.json -o src/types/api.d.ts`
-- **Manual** — The schema is small enough that hand-written types (already in
-  `src/types/`) stay in sync easily.
+| Backend unavailable | Frontend API proxy returns 502 with user-friendly message |
 
 ## Testing
 
 ```bash
+# Backend
 cd backend
-uv run pytest -v
+uv run pytest -v          # Run tests
+uv run ruff check .       # Lint
+uv run ruff format .      # Format
+
+# Frontend
+cd frontend
+pnpm exec tsc --noEmit    # Type check
+pnpm lint                 # ESLint
+pnpm build                # Production build
 ```
 
-Tests cover:
-- **Tool tests** — Cookware availability, missing items, case sensitivity, edge cases
-- **API tests** — Health endpoint, input validation
-- **Graph tests** — Classification routing (with mocked LLM)
+Tests cover tool behavior (cookware lookup, case sensitivity, edge cases), API endpoints (health, validation), and graph classification routing.
+
+## OpenAPI Schema
+
+```bash
+cd backend
+uv run python scripts/export_openapi.py   # Exports backend/openapi.json
+```
+
+Also served at runtime at `GET /openapi.json` and interactive docs at `GET /docs`.

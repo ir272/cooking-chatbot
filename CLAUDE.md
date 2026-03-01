@@ -60,3 +60,8 @@ docker compose up --build
 - InMemorySaver is used for dev — swap to PostgresSaver for production
 - Backend port: 8001 (8000 may be in use)
 - Frontend port: 3001 (3000 may be in use)
+- Graph node functions (classify_query, agent) are async — use `ainvoke` not `invoke`
+- Error messages to clients are sanitized — raw exceptions are logged server-side only
+- DuckDuckGo is a fallback, not additive — only used when Tavily key is absent
+- Docker containers run as non-root users
+- Docker Compose maps 8001:8000 (backend) and 3001:3000 (frontend)
