@@ -251,6 +251,42 @@ pnpm build                # Production build
 
 Tests cover tool behavior (cookware lookup, case sensitivity, edge cases), API endpoints (health, validation), and graph classification routing.
 
+## Known Issues & Future Improvements
+
+Findings from a comprehensive code review. None of these affect the core user experience in local development, but they would need to be addressed before a production deployment.
+
+### Backend
+
+| Priority | Issue | Location |
+|----------|-------|----------|
+| High | `Settings()` instantiated at import time — crashes if `OPENAI_API_KEY` is missing before any useful error | `app/config.py` |
+| High | No `try/except` around `build_graph()` in lifespan — startup failure gives no clear log | `app/main.py` |
+| High | Streaming endpoint outer scope has no error guard — can return HTTP 200 with empty body | `app/main.py` |
+| Medium | `CookingState(total=False)` makes `messages` optional unintentionally | `app/graphs/cooking.py` |
+| Medium | No test coverage for `/chat/stream` endpoint | `tests/` |
+| Medium | `MemorySaver` breaks silently with multiple uvicorn workers (no shared state) | `app/graphs/cooking.py` |
+| Low | `@pytest.fixture` on async fixture — deprecated in pytest-asyncio, should use `@pytest_asyncio.fixture` | `tests/conftest.py` |
+
+### Frontend
+
+| Priority | Issue | Location |
+|----------|-------|----------|
+| High | No `AbortController` on SSE fetch — a hung backend locks the user out permanently | `lib/api.ts` |
+| Medium | `setTimeout` in CopyButton not cleared on unmount (minor memory leak) | `chat-message.tsx` |
+| Medium | `ReactMarkdown` `components` prop recreated every render (unnecessary re-renders) | `chat-message.tsx` |
+| Medium | No `aria-live` region for screen reader announcements on new messages | `chat-container.tsx` |
+| Low | Textarea missing `aria-label` for accessibility | `chat-input.tsx` |
+
+### Infrastructure
+
+| Priority | Issue | Location |
+|----------|-------|----------|
+| High | Backend Dockerfile doesn't copy app source to final image — container crashes on start | `backend/Dockerfile` |
+| High | Frontend Dockerfile missing `HOSTNAME=0.0.0.0` — container unreachable in Docker | `frontend/Dockerfile` |
+| Medium | `tailwind.config.ts` is dead code under Tailwind v4 (config lives in `globals.css`) — should be deleted | `frontend/tailwind.config.ts` |
+| Medium | Docker CI job doesn't depend on backend/frontend jobs passing first | `.github/workflows/ci.yml` |
+| Low | `docker-compose.yml` healthcheck uses `curl` which isn't in `python:3.13-slim` | `docker-compose.yml` |
+
 ## OpenAPI Schema
 
 Interactive docs at `GET /docs` when backend is running. Export static schema:
