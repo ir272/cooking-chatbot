@@ -3,7 +3,6 @@
 import { useState, KeyboardEvent } from "react";
 import TextareaAutosize from "react-textarea-autosize";
 import { Send } from "lucide-react";
-import { Button } from "@/components/ui/button";
 
 interface ChatInputProps {
   onSend: (message: string) => void;
